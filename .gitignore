@@ -1,0 +1,4 @@
+build/
+.specmatic/
+node_modules/
+dist/

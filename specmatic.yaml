@@ -24,6 +24,8 @@ components:
               $ref: "#/components/sources/centralContractRepo"
             specs:
               - spec:
+                  path: "contracts/services/inventory-sync-service/http/openapi.yaml"
+              - spec:
                   path: "contracts/services/inventory-sync-service/events/asyncapi.yaml"
     catalogService:
       description: "Catalog Service HTTP dependency"
@@ -36,6 +38,10 @@ components:
                   path: "contracts/services/catalog-service/http/openapi.yaml"
   runOptions:
     inventorySyncService:
+      openapi:
+        type: test
+        host: localhost
+        port: 9011
       asyncapi:
         type: test
         servers:
