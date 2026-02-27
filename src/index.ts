@@ -26,6 +26,12 @@ const producer: Producer = kafka.producer();
 const processedEvents: InventoryAdjusted[] = [];
 const maxProcessedEvents = 100;
 let kafkaConnected = false;
+const allowedAdjustmentReasons = new Set([
+  'ORDER_PLACED',
+  'ORDER_CANCELLED',
+  'RETURN_RECEIVED',
+  'MANUAL_RECONCILIATION'
+]);
 
 function isInventoryAdjustmentRequest(value: unknown): value is InventoryAdjustmentRequest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -38,6 +44,7 @@ function isInventoryAdjustmentRequest(value: unknown): value is InventoryAdjustm
     typeof payload.sku === 'string' &&
     typeof payload.adjustmentDelta === 'number' &&
     typeof payload.reason === 'string' &&
+    allowedAdjustmentReasons.has(payload.reason) &&
     typeof payload.requestedAt === 'string'
   );
 }
