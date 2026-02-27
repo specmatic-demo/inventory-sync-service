@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import express, { type Request, type Response } from 'express';
 import { Kafka, type Consumer, type Producer } from 'kafkajs';
-import mqtt, { type MqttClient } from 'mqtt';
 import type { CatalogAvailability, InventoryAdjusted, InventoryAdjustmentRequest } from './types';
 
 const host = process.env.INVENTORY_SYNC_HOST || '0.0.0.0';
@@ -12,8 +11,6 @@ const kafkaBrokers = (process.env.INVENTORY_SYNC_KAFKA_BROKERS || 'localhost:909
   .filter(Boolean);
 const kafkaTopic = process.env.INVENTORY_ADJUSTMENT_TOPIC || 'inventory.adjustment.request';
 const inventoryAdjustedTopic = process.env.INVENTORY_ADJUSTED_TOPIC || 'inventory.adjusted';
-const mqttUrl = process.env.INVENTORY_SYNC_MQTT_URL || 'mqtt://localhost:1883';
-const mqttTopic = process.env.INVENTORY_ADJUSTED_MQTT_TOPIC || 'inventory.adjusted';
 const catalogBaseUrl = process.env.CATALOG_BASE_URL || 'http://localhost:5112';
 
 const app = express();
@@ -25,11 +22,9 @@ const kafka = new Kafka({
 });
 const consumer: Consumer = kafka.consumer({ groupId: 'inventory-sync-service-group' });
 const producer: Producer = kafka.producer();
-const mqttClient: MqttClient = mqtt.connect(mqttUrl);
 
 const processedEvents: InventoryAdjusted[] = [];
 const maxProcessedEvents = 100;
-let mqttConnected = false;
 let kafkaConnected = false;
 
 function isInventoryAdjustmentRequest(value: unknown): value is InventoryAdjustmentRequest {
@@ -117,17 +112,6 @@ async function publishAdjustedEvent(event: InventoryAdjusted): Promise<void> {
     topic: inventoryAdjustedTopic,
     messages: [{ key: event.sku, value: JSON.stringify(event) }]
   });
-
-  await new Promise<void>((resolve, reject) => {
-    mqttClient.publish(mqttTopic, JSON.stringify(event), { qos: 1 }, (error?: Error | null) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve();
-    });
-  });
 }
 
 async function processAdjustment(request: InventoryAdjustmentRequest): Promise<InventoryAdjusted> {
@@ -180,26 +164,10 @@ async function startKafkaConsumer(): Promise<void> {
   });
 }
 
-mqttClient.on('connect', () => {
-  mqttConnected = true;
-  console.log(`[mqtt] connected to ${mqttUrl}`);
-});
-
-mqttClient.on('offline', () => {
-  mqttConnected = false;
-  console.warn('[mqtt] offline');
-});
-
-mqttClient.on('error', (error: Error) => {
-  mqttConnected = false;
-  console.error(`[mqtt] error: ${error.message}`);
-});
-
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'UP',
-    kafkaConnected,
-    mqttConnected
+    kafkaConnected
   });
 });
 
